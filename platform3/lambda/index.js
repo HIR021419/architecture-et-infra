@@ -1,10 +1,12 @@
 import { DynamoDBClient, ScanCommand, PutItemCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
-import { v4 as uuid } from 'uuid';
+import { randomUUID } from 'crypto'; // Utilisation du module natif Node.js
 
 const client = new DynamoDBClient({});
 const TABLE_NAME = process.env.TABLE_NAME;
 
-exports.handler = async (event) => {
+// Notez le "export const" au lieu de "exports.handler"
+export const handler = async (event) => {
+    // Le reste du code est identique, sauf la création de l'ID plus bas
     const method = event.requestContext.http.method;
     const path   = event.requestContext.http.path;
 
@@ -31,6 +33,7 @@ exports.handler = async (event) => {
 
         return { statusCode: 400, body: "Route not supported" };
     } catch (err) {
+        console.error(err); // Important pour voir l'erreur dans CloudWatch
         return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
     }
 };
@@ -40,7 +43,8 @@ async function getItems() {
         TableName: TABLE_NAME
     }));
 
-    const items = result.Items.map(i => ({
+    // Sécurisation : result.Items peut être undefined si la table est vide
+    const items = (result.Items || []).map(i => ({
         id: i.id.S,
         name: i.name.S,
         quantity: Number(i.quantity.N)
@@ -53,7 +57,7 @@ async function getItems() {
 }
 
 async function createItem(data) {
-    const id = uuid();
+    const id = randomUUID(); // Plus besoin de la librairie externe 'uuid'
 
     await client.send(new PutItemCommand({
         TableName: TABLE_NAME,
@@ -76,9 +80,7 @@ async function deleteItem(id) {
         Key: { id: { S: id } }
     }));
 
-    return {
-        statusCode: 204
-    };
+    return { statusCode: 204 };
 }
 
 async function updateItem(id, data) {

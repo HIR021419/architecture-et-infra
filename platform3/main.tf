@@ -32,9 +32,9 @@ resource "aws_iam_role" "lambda_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = { Service = "lambda.amazonaws.com" }
-      Action   = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -81,9 +81,11 @@ data "archive_file" "lambda_zip" {
 resource "aws_lambda_function" "api_handler" {
   function_name = "shopping_list_handler"
   handler       = "index.handler"
-  runtime       = "nodejs24.x"
+  runtime       = "nodejs22.x"
   role          = aws_iam_role.lambda_role.arn
   filename      = data.archive_file.lambda_zip.output_path
+
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   environment {
     variables = {
@@ -137,6 +139,13 @@ resource "aws_lambda_permission" "api_permission" {
   function_name = aws_lambda_function.api_handler.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+# Auto deploy
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
 }
 
 # Output
